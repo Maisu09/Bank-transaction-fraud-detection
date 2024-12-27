@@ -9,8 +9,6 @@ from sklearn.preprocessing import StandardScaler
 import seaborn as sns
 
 
-
-
 def determine_fraudulent_state():
     global data
     print(data)
@@ -43,45 +41,23 @@ def determine_fraudulent_state():
 def main():
     global data
     # Load the dataset
-    data = pd.read_csv(r"../bank_transactions_data_2.csv")
+    data = pd.read_csv(r"bank_transactions_data_2.csv")
 
-    # Fill or drop missing values (example: fill missing numeric columns with median)
+    # Fill missing values
     numeric_columns = data.select_dtypes(include=['float64', 'int64']).columns
     data[numeric_columns] = data[numeric_columns].fillna(data[numeric_columns].median())
 
-    # Handle categorical data (example: fill missing with mode)
+    # Categorical data
     categorical_columns = data.select_dtypes(include=['object']).columns
     for col in categorical_columns:
         data[col] = data[col].fillna(data[col].mode()[0])
-
-    # Convert date columns to datetime format (if applicable)
-    if 'date' in data.columns:
-        data['date'] = pd.to_datetime(data['date'])
-
-    # Select only numeric columns
-    numeric_data = data.select_dtypes(include=['float64', 'int64'])
-
-    # Drop columns with too many missing values (optional)
-    numeric_data = numeric_data.dropna(axis=1, thresh=len(numeric_data) * 0.5)  # Keep columns with >50% non-NaN values
-
-    # Fill remaining missing values with median (optional)
-    numeric_data = numeric_data.fillna(numeric_data.median())
     
-    # Preprocessing: Handle datetime columns
+    # Datetime columns
     data['TransactionDate'] = pd.to_datetime(data['TransactionDate'])
     data['PreviousTransactionDate'] = pd.to_datetime(data['PreviousTransactionDate'])
     data['TimeSinceLastTransaction'] = (data['TransactionDate'] - data['PreviousTransactionDate']).dt.total_seconds()
 
-    # Identify numeric and categorical columns
-    numeric_cols = ['TransactionAmount', 'TransactionDuration', 'LoginAttempts', 'AccountBalance', 'CustomerAge', 'TimeSinceLastTransaction']
-    categorical_cols = ['TransactionType', 'Location', 'Channel', 'CustomerOccupation']
-
-    # Normalize numeric columns
-    scaler = StandardScaler()
-    numeric_scaled = pd.DataFrame(scaler.fit_transform(data[numeric_cols]), columns=numeric_cols)
-
-    
-    features = ['TransactionAmount', 'TransactionDuration', 'LoginAttempts', 'AccountBalance','CustomerAge','TimeSinceLastTransaction']
+    features = ['TransactionAmount', 'TransactionDuration', 'LoginAttempts', 'AccountBalance', 'TimeSinceLastTransaction']
     target = 'Fraud'
     
     data['Fraud'] = False
@@ -100,15 +76,14 @@ def main():
     X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.5, random_state=42)
 
     # Train Logistic Regression model
-    log_reg = LogisticRegression(random_state=42, solver="saga")
+    reg = LogisticRegression(random_state=42, solver="saga")
     # print(y_train.unique())
     # print()
     # print(y_train.value_counts())
-    log_reg.fit(X_train, y_train)
+    reg.fit(X_train, y_train)
 
     # # Predict fraud on the test set
-    y_pred = log_reg.predict(X_test)
-
+    y_pred = reg.predict(X_test)
 
     # Evaluate model performance
     print("Classification Report:")
@@ -117,26 +92,26 @@ def main():
     # Confusion Matrix
     conf_matrix = confusion_matrix(y_test, y_pred)
     plt.figure(figsize=(8, 6))
-    sns.heatmap(conf_matrix, annot=True, fmt="d", cmap="Blues", xticklabels=['Non-Fraud', 'Fraud'], yticklabels=['Non-Fraud', 'Fraud'])
+    sns.heatmap(conf_matrix, annot=True, fmt="d", cmap="Greens", xticklabels=['Non-Fraud', 'Fraud'], yticklabels=['Non-Fraud', 'Fraud'])
     plt.title('Confusion Matrix', fontsize=16)
     plt.xlabel('Predicted', fontsize=14)
     plt.ylabel('Actual', fontsize=14)
     plt.show()
 
     # Add predictions to the dataset
-    data['LogReg_Fraud'] = log_reg.predict(X_scaled)
-    data['Fraud'] |= data['LogReg_Fraud']
+    data['RegFraud'] = reg.predict(X_scaled)
+    data['Fraud'] |= data['RegFraud']
 
     # Visualize fraud vs. non-fraud transactions
     plt.figure(figsize=(12, 8))
     sns.scatterplot(
         x=data['TransactionAmount'],
         y=data['AccountBalance'],
-        hue=data['LogReg_Fraud'],
+        hue=data['RegFraud'],
         palette={1: 'red', 0: 'blue'},
         alpha=0.7
     )
-    plt.title('Logistic Regression Fraud Detection', fontsize=16)
+    plt.title('Fraud Detection', fontsize=16)
     plt.xlabel('Transaction Amount', fontsize=14)
     plt.ylabel('Account Balance', fontsize=14)
     plt.legend(title='Fraud', labels=['Non-Fraud', 'Fraud'], fontsize=12)
@@ -145,7 +120,7 @@ def main():
 
     # Save fraudulent transactions detected
     fraud_output_path = 'fraud_transactions.csv'
-    fraud_points = data[data['LogReg_Fraud'] == 1]
+    fraud_points = data[data['RegFraud'] == 1]
     fraud_points.to_csv(fraud_output_path, index=False)
 
     # Summary
