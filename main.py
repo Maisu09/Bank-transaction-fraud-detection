@@ -120,7 +120,7 @@ def main():
 
     # Save fraudulent transactions detected
     fraud_output_path = 'fraud_transactions.csv'
-    fraud_points = data[data['LogReg_Fraud'] == 1]
+    fraud_points = data[data['RegFraud'] == 1]
     fraud_points.to_csv(fraud_output_path, index=False)
 
     # Summary
